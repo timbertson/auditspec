@@ -10,10 +10,6 @@ import scala.concurrent.duration._
 object AuditSpec extends SimpleTaskSuite {
   private val resource = Audit.resource[String]
 
-  pureTest("non-effectful (pure) test"){
-    expect("hello".size == 5)
-  }
-
   test("record / reset / get") {
     resource.use { audit =>
       for {
