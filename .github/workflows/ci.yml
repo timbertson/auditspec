@@ -37,7 +37,7 @@ jobs:
         set -x
         docker tag "docker.pkg.github.com/timbertson/auditspec/app:$GITHUB_SHA" "docker.pkg.github.com/timbertson/auditspec/app:latest"
         docker push "docker.pkg.github.com/timbertson/auditspec/app:latest"
-    - name: Check generated files
+    - name: Test
       run: |-
         set -eu -o pipefail
         set -x
@@ -45,6 +45,20 @@ jobs:
           sbt 'strict compile' test
 
         EOF_runInDocker
+    - name: Dhall cache
+      uses: actions/cache@v1
+      with:
+        key: dhall-cache-${{ hashFiles('dhall/dependencies/*') }}
+        path: "~/.cache/dhall"
+    - name: Check generated files
+      run: "set -eu -o pipefail\nset -x\ndocker run --rm -i \"--volume\" \"$HOME/.cache:/root/.cache\"
+        \"--volume\" \"$PWD:/cwd\" \"--workdir=/cwd\" \"docker.pkg.github.com/timbertson/dhall-ci/dhall:1.37\"
+        bash -eu -o pipefail <<EOF_runInDocker\n  ./dhall/render\n  ./dhall/fix --lint
+        dhall\n  if ! git --no-pager diff --patch --exit-code HEAD -- >&2; then\n
+        \   set +x\n    echo >&2\n    echo '--------------------------------' >&2\n
+        \   echo 'Uncommitted changes found, please run the following locally and
+        commit the changes:' >&2\n    cat >&2 <<EOF_diff\n      ./dhall/render\n  ./dhall/fix
+        --lint dhall\n    \nEOF_diff\n    exit 1\n  fi\n\nEOF_runInDocker"
 name: CI
 'on':
   pull_request: {}
