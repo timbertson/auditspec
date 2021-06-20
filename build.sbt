@@ -1,7 +1,5 @@
 import ScalaProject._
 
-scalaVersion in ThisBuild := "2.13.5"
-
 val weaverVersion = "0.6.3"
 val catsVersion = "2.3.0"
 
@@ -9,7 +7,6 @@ val weaverCats = "com.disneystreaming" %% "weaver-cats" % weaverVersion
 val weaverMonix = "com.disneystreaming" %% "weaver-monix" % weaverVersion
 
 lazy val commonSettings = Seq(
-  version := "1.0",
   organization := "net.gfxmonk",
   testFrameworks += new TestFramework("weaver.framework.CatsEffect"),
   testFrameworks += new TestFramework("weaver.framework.Monix"),
