@@ -2,10 +2,10 @@ package net.gfxmonk.auditspec
 
 import cats.effect.Resource
 import cats.effect.concurrent.{MVar, MVar2}
-import _root_.monix.eval.Task
-import _root_.monix.execution.Scheduler
-import _root_.monix.execution.schedulers.CanBlock
-import _root_.monix.reactive.subjects.Var
+import monix.eval.Task
+import monix.execution.Scheduler
+import monix.execution.schedulers.CanBlock
+import monix.reactive.subjects.Var
 
 import scala.collection.immutable.Queue
 
