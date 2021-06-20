@@ -8,7 +8,7 @@ import weaver.monixcompat.SimpleTaskSuite
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-object ProcessorSpec extends SimpleTaskSuite with TestSchedulerUtil {
+object ProcessorSpec extends SimpleTaskSuite with TestSchedulerSuite {
   class Context(val audit: Audit[String], val processor: SingletonProcessor) {
     val failure = new RuntimeException("simulated failure")
 
