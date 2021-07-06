@@ -23,7 +23,9 @@ test("record / reset / get") {
 }
 ```
 
-That's right, it's basically just a `ListBuffer`. But it has some handy features:
+That's right, it's basically just a `ListBuffer`. The idea is that when you need to test certain side effects, you inject test stubs which just record events in this list. Then at the end of the test, you assert which effects have happened. You're not limited to `String` events, you can (and should) make your own event types to enable better filtering/etc.
+
+Why not just use a `ListBuffer`? You're welcome to, but `auditspec` has a couple of extra features:
 
  - it's built on monix Task, to represent side effects purely
  - it's thread-safe
