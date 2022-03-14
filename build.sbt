@@ -1,23 +1,19 @@
 import ScalaProject._
 
-val weaverVersion = "0.6.3"
-val catsVersion = "2.3.0"
+val weaverVersion = "0.7.11"
+val catsVersion = "3.3.7"
 
 val weaverCats = "com.disneystreaming" %% "weaver-cats" % weaverVersion
-val weaverMonix = "com.disneystreaming" %% "weaver-monix" % weaverVersion
 
 ThisBuild / versionScheme := Some("semver-spec")
 
 lazy val commonSettings = Seq(
   organization := "net.gfxmonk",
   testFrameworks += new TestFramework("weaver.framework.CatsEffect"),
-  testFrameworks += new TestFramework("weaver.framework.Monix"),
   libraryDependencies ++= Seq(
-    "org.typelevel" %% "cats-core" % catsVersion,
-    "org.typelevel" %% "cats-effect" % catsVersion,
-    "io.monix" %% "monix" % "3.2.2",
-    weaverCats % Test,
-    weaverMonix % Test,
+    "org.typelevel" %% "cats-effect-std" % catsVersion,
+    "org.typelevel" %% "cats-effect-testkit" % catsVersion % Test,
+    weaverCats % Test
   ),
 )
 
@@ -34,7 +30,7 @@ lazy val weaver = (project in file("weaver")).settings(
 
   libraryDependencies ++= Seq(
     weaverCats,
-    weaverMonix,
+    "org.typelevel" %% "cats-effect-testkit" % catsVersion,
   ),
 ).dependsOn(core)
 

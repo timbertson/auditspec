@@ -1,48 +1,66 @@
 package net.gfxmonk.auditspec
 
-import cats.effect.Resource
-import cats.effect.concurrent.{MVar, MVar2}
-import monix.eval.Task
-import monix.execution.Scheduler
-import monix.execution.schedulers.CanBlock
-import monix.reactive.subjects.Var
+import cats.effect.kernel.{Concurrent, Deferred, Ref, Resource}
+import cats.implicits._
 
 import scala.collection.immutable.Queue
 
-class Audit[T] private(state: MVar2[Task, List[T]], latest: Var[List[T]]) {
-  private def update[R](modify: List[T] => (List[T], R)): Task[R] = {
-    state.take.flatMap { current =>
-      val (updated, result) = modify(current)
-      for {
-        // emit and then write back to state
-        _ <- Task(latest := updated)
-        _ <- state.put(updated)
-      } yield result
-    }.uncancelable
+private sealed trait WatchResponse
+private case object KeepWatching extends WatchResponse
+private case object StopWatching extends WatchResponse
+
+// waiters is a list of functions. When one return an F[Unit], it means its watch
+// is complete (and we want to trigger the effect)
+private case class State[F[_], T](value: List[T], waiters: List[List[T] => Option[F[Unit]]])
+
+class Audit[F[_], T] private(state: Ref[F, State[F, T]])(implicit io: Concurrent[F]) {
+  private def update[R](modify: List[T] => (List[T], R)): F[R] = {
+    state.modify { (lastState: State[F, T]) =>
+      val (updated, result) = modify(lastState.value)
+      val (remainingWaiters, triggerWaiters) = lastState.waiters.partitionMap { fn =>
+        fn(updated).toRight(fn)
+      }
+      val nextState = State(updated, remainingWaiters)
+      val action = triggerWaiters.sequence_.as(result)
+      (nextState, action)
+    }.flatMap(identity[F[R]])
   }
 
-  def get = state.read
+  def get = state.get.map(_.value)
 
-  def record(interaction: T): Task[Unit] = update(list => (list.appended(interaction), ()))
+  def record(interaction: T): F[Unit] = update(list => (list.appended(interaction), ()))
 
-  def reset: Task[List[T]] = update(original => (Nil, original))
+  def reset: F[List[T]] = update(original => (Nil, original))
 
-  def waitUntil(predicate: List[T] => Boolean): Task[List[T]] = latest.filter(predicate).firstL
+  def waitUntil(predicate: List[T] => Boolean): F[List[T]] = {
+    for {
+      d <- Deferred[F, List[T]]
+      action <- state.modify { currentState =>
+        val maybeComplete: List[T] => Option[F[Unit]] = value => if (predicate(value)) {
+          Some(d.complete(value).void)
+        } else {
+          None
+        }
 
-  def waitUntilEvent(predicate: T => Boolean): Task[List[T]] = waitUntil(list => list.exists(predicate))
+        maybeComplete(currentState.value) match {
+          case Some(action) => (currentState, action)
+          case None => (currentState.copy(waiters = maybeComplete :: currentState.waiters), io.unit)
+        }
+      }
+      _ <- action
+      result <- d.get
+    } yield result
+}
+
+  def waitUntilEvent(predicate: T => Boolean): F[List[T]] = waitUntil(list => list.exists(predicate))
 }
 
 object Audit {
-  def apply[T] = Task.deferAction { scheduler =>
-    val initial = List()
-    val changes: Var[List[T]] = Var[List[T]](initial)(scheduler)
-    MVar.of[Task, List[T]](initial).map(state => new Audit(state, changes))
+  def apply[F[_], T](implicit io: Concurrent[F]) = {
+    Ref[F].of[State[F, T]](State[F, T](Nil, Nil)).map { ref => new Audit[F, T](ref) }
   }
 
-  // convenience constructor outside of Task
-  def unsafe[T] = apply[T].runSyncUnsafe()(Scheduler.global, implicitly[CanBlock])
-
-  def resource[T] = Resource.liftF(apply[T])
+  def resource[F[_], T](implicit io: Concurrent[F]) = Resource.eval(apply[F, T])
 
   private def partitionAcc[T](acc: Queue[List[T]], expected: List[List[T]], events: List[T]): List[List[T]] = {
     (expected, events) match {

@@ -1,14 +1,14 @@
 package net.gfxmonk.auditspec
 
-import monix.eval.Task
-import weaver.monixcompat.SimpleTaskSuite
+import weaver.SimpleIOSuite
 import cats.implicits._
+import cats.effect.IO
 
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
 
-object AuditSpec extends SimpleTaskSuite {
-  private val resource = Audit.resource[String]
+object AuditSpec extends SimpleIOSuite {
+  private val resource = Audit.resource[IO, String]
 
   test("record / reset / get") {
     resource.use { audit =>
@@ -33,14 +33,14 @@ object AuditSpec extends SimpleTaskSuite {
     resource.use { audit =>
       for {
         _ <- audit.record("initial")
-        initialCheck <- audit.waitUntil(_.size > 1).timeout(1.millis).failed
-        finalCheck <- Task.race(
-          Task.sleep(10.millis) >> audit.record("second") >> Task.never,
+        initialCheck <- audit.waitUntil(_.size > 1).timeout(1.millis).attempt.map(res => res.left.toOption)
+        finalCheck <- IO.race(
+          IO.sleep(10.millis) >> audit.record("second") >> IO.never,
           audit.waitUntil(_.size > 1)
         )
       } yield {
         expect.all(
-          initialCheck.getClass == classOf[TimeoutException],
+          initialCheck.map(_.getClass) == Some(classOf[TimeoutException]),
           finalCheck == Right(List("initial", "second")))
       }
     }

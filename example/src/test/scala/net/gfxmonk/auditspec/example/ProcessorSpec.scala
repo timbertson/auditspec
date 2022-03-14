@@ -1,42 +1,40 @@
 package net.gfxmonk.auditspec.example
 
-import monix.eval.Task
-import net.gfxmonk.auditspec.{Audit, TestSchedulerUtil}
-import weaver.Expectations
-import weaver.monixcompat.SimpleTaskSuite
+import cats.effect.IO
+import net.gfxmonk.auditspec.{Audit, TestControlSuite}
+import weaver.{Expectations, SimpleIOSuite}
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 
-object ProcessorSpec extends SimpleTaskSuite with TestSchedulerSuite {
-  class Context(val audit: Audit[String], val processor: SingletonProcessor) {
+object ProcessorSpec extends SimpleIOSuite with TestControlSuite {
+  class Context(val audit: Audit[IO, String], val processor: SingletonProcessor) {
     val failure = new RuntimeException("simulated failure")
 
     def succeed(delay: FiniteDuration = Duration.Zero) = {
       audit.record("succeed: start") >>
-        (Task.sleep(delay) >>
+        (IO.sleep(delay) >>
           audit.record("succeed: finish")
-         ).doOnCancel(audit.record("succeed: cancel"))
+         ).onCancel(audit.record("succeed: cancel"))
     }
 
     def fail(delay: FiniteDuration = Duration.Zero) = {
       audit.record("fail: start") >>
-        (Task.sleep(delay) >>
+        (IO.sleep(delay) >>
           audit.record("fail: finish") >>
-          Task.raiseError(failure)
-        ).doOnCancel(audit.record("fail: cancel"))
+          IO.raiseError(failure)
+        ).onCancel(audit.record("fail: cancel"))
     }
 
-    def finalLog = Task.sleep(1.day) >> audit.get
+    def finalLog = IO.sleep(1.day) >> audit.get
   }
 
-  def ctxTest(desc: String)(block: Context => Task[Expectations]) = {
-    syncTest(desc) {
-      Audit.resource[String].use { audit =>
+  def ctxTest(desc: String)(block: Context => IO[Expectations]) = {
+    controlTest(desc) {
+      Audit.resource[IO, String].use { audit =>
         SingletonProcessor.use { processor =>
           val ctx = new Context(audit, processor)
           block(ctx).flatMap { result =>
-            Task.sleep(1.hour).as(result)
+            IO.sleep(1.hour).as(result)
           }
         }
       }
@@ -46,7 +44,7 @@ object ProcessorSpec extends SimpleTaskSuite with TestSchedulerSuite {
   ctxTest("runs a task in the background") { ctx =>
     for {
       _ <- ctx.processor.spawn(ctx.succeed(10.seconds))
-      _ <- Task.sleep(1.second)
+      _ <- IO.sleep(1.second)
       _ <- ctx.audit.record("foreground")
       log <- ctx.finalLog
     } yield {
@@ -57,10 +55,10 @@ object ProcessorSpec extends SimpleTaskSuite with TestSchedulerSuite {
   ctxTest("cancels the current task when spawning a new one") { ctx =>
     for {
       _ <- ctx.processor.spawn(ctx.fail(10.seconds))
-      _ <- Task.sleep(5.seconds)
+      _ <- IO.sleep(5.seconds)
 
       // delay task body so that cancellation propagates first
-      _ <- ctx.processor.spawn(ctx.succeed().delayExecution(1.second))
+      _ <- ctx.processor.spawn(ctx.succeed().delayBy(1.second))
       log <- ctx.finalLog
     } yield {
       expect(log == List(
@@ -75,17 +73,17 @@ object ProcessorSpec extends SimpleTaskSuite with TestSchedulerSuite {
     for {
       result <- SingletonProcessor.use { processor =>
         processor.spawn(ctx.fail(10.seconds)) >>
-          Task.sleep(1.second) >>
+          IO.sleep(1.second) >>
           ctx.audit.record("waiting") >>
-          Task.sleep(20.seconds)
-      }.materialize
+          IO.sleep(20.seconds)
+      }.attempt
       log <- ctx.finalLog
     } yield {
       expect(log == List(
         "fail: start",
         "waiting",
         "fail: finish")
-      ).and(expect(result == Failure(ctx.failure)))
+      ).and(expect(result == Left(ctx.failure)))
     }
   }
 
@@ -93,16 +91,16 @@ object ProcessorSpec extends SimpleTaskSuite with TestSchedulerSuite {
     for {
       result <- SingletonProcessor.use { processor =>
         processor.spawn(ctx.succeed(10.seconds)) >>
-          Task.sleep(1.second) >>
+          IO.sleep(1.second) >>
           ctx.audit.record("discarding")
-      }.materialize
+      }.attempt
       log <- ctx.finalLog
     } yield {
       expect(log == List(
         "succeed: start",
         "discarding",
         "succeed: cancel")
-      ).and(expect(result == Success()))
+      ).and(expect(result == Right(())))
     }
   }
 }
