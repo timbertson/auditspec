@@ -2,10 +2,10 @@
 
 ThisBuild / scalaVersion := "2.13.7"
 ThisBuild / organization := "net.gfxmonk"
-ThisBuild / homepage := Some(url(s"https://github.com/timbertson/backpressure-sensor"))
+ThisBuild / homepage := Some(url(s"https://github.com/timbertson/auditspec"))
 ThisBuild / scmInfo := Some(
 	ScmInfo(
-		url("https://github.com/timbertson/backpressure-sensor"),
-		s"scm:git@github.com:timbertson/backpressure-sensor.git"
+		url("https://github.com/timbertson/auditspec"),
+		s"scm:git@github.com:timbertson/auditspec.git"
 	)
 )
