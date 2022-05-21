@@ -1,3 +1,5 @@
+<img src="http://gfxmonk.net/dist/status/project/auditspec.png">
+
 # Auditspec
 
 Auditspec is a ridiculously simple library for helping you test side effects in code. Usage is dirt simple, as exemplified by its own test case:
