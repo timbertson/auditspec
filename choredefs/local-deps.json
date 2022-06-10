@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "https://raw.githubusercontent.com/timbertson/chored-timbertson/f2709e673ff8d5dde43af021b4e7548afaf09ada/": "../chored-timbertson/"
+  }
+}
