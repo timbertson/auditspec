@@ -1,3 +1,3 @@
-import { defaultDockerOptions, default as Scala } from 'https://raw.githubusercontent.com/timbertson/chored-timbertson/f2709e673ff8d5dde43af021b4e7548afaf09ada/lib/scala.ts#main'
+import { defaultDockerOptions, default as Scala } from 'https://raw.githubusercontent.com/timbertson/chored-timbertson/9ce6bcd27906f824e8cbfb4e7f326856e93e53ee/lib/scala.ts#main'
 
 export default Scala({ repo: 'auditspec' })
