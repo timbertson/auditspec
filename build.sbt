@@ -25,7 +25,7 @@ lazy val core = (project in file("core")).settings(
 
 lazy val weaver = (project in file("weaver")).settings(
   commonSettings,
-  publicProjectSettings,
+  hiddenProjectSettings,
   name := "auditspec-weaver",
 
   libraryDependencies ++= Seq(
@@ -37,7 +37,7 @@ lazy val weaver = (project in file("weaver")).settings(
 lazy val example = (project in file("example")).settings(
   commonSettings,
   hiddenProjectSettings,
-  name := "auditspec",
+  name := "auditspec-example",
 ).dependsOn(core, weaver)
 
 lazy val root = (project in file("."))
