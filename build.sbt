@@ -1,5 +1,7 @@
 import ScalaProject._
 
+ThisBuild / crossScalaVersions := List(scala2Version, scala3Version)
+
 val weaverVersion = "0.7.11"
 val catsVersion = "3.3.7"
 
